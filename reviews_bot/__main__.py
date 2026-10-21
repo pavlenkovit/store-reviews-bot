@@ -11,7 +11,7 @@ import json
 import sys
 import traceback
 
-from . import appstore, config, googleplay
+from . import appstore, chromestore, config, googleplay
 from .telegram import Telegram, esc
 
 
@@ -66,10 +66,14 @@ def run(dry_run: bool) -> int:
         else:
             errors.append("Google Play: не задан GOOGLE_SERVICE_ACCOUNT_JSON")
 
+    if apps.get("chromestore"):
+        step("Chrome Web Store", lambda: chromestore.check(state, apps["chromestore"]))
+
     messages = [e["text"] for e in sorted(events, key=lambda e: e["time"])]
     if fresh:
         names = [f"{a['name']} (App Store)" for a in apps.get("appstore", [])]
         names += [f"{a['name']} (Google Play)" for a in apps.get("googleplay", [])]
+        names += [f"{a['name']} (Chrome Web Store)" for a in apps.get("chromestore", [])]
         messages.insert(0, "👋 Бот отзывов запущен. Слежу за: " + ", ".join(esc(n) for n in names)
                         + ".\nУже существующие отзывы и оценки пропускаю, пришлю только новые.")
 

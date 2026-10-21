@@ -8,7 +8,7 @@ import csv
 import io
 import time
 from datetime import datetime, timedelta, timezone
-from urllib.parse import quote
+from urllib.parse import quote as url_quote
 
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import service_account
@@ -100,7 +100,7 @@ def month_keys(now: datetime) -> list[str]:
 
 
 def fetch_report(http: AuthorizedSession, bucket: str, package: str, month: str) -> list[dict]:
-    name = quote(f"reviews/reviews_{package}_{month}.csv", safe="")
+    name = url_quote(f"reviews/reviews_{package}_{month}.csv", safe="")
     r = http.get(OBJECT.format(bucket=bucket, name=name), timeout=60)
     if r.status_code == 404:
         return []

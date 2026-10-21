@@ -6,5 +6,8 @@
   "googleplay": [
     {"name": "VibeLing", "package": "com.vitalypavlenko.vibeling"}
   ],
+  "chromestore": [
+    {"name": "Web Translator", "id": "feogbealjmbapcoafbdahfojehmipfkf"}
+  ],
   "play_reports_bucket": "pubsite_prod_5656397996215879881"
 }
