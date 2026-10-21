@@ -40,3 +40,22 @@ def flag(alpha2: str) -> str:
 
 def label(alpha2: str) -> str:
     return f"{flag(alpha2)} {alpha2.upper()}"
+
+
+# Play не сообщает страну отзыва, только язык (ru, en, pt_BR…). Флаг — по региону языка,
+# если он указан, иначе по основной стране языка.
+LANGUAGE_COUNTRY = {
+    "ar": "sa", "be": "by", "bg": "bg", "bs": "ba", "cs": "cz", "da": "dk", "de": "de", "el": "gr",
+    "en": "us", "es": "es", "et": "ee", "fa": "ir", "fi": "fi", "fr": "fr", "he": "il", "iw": "il",
+    "hi": "in", "hr": "hr", "hu": "hu", "hy": "am", "id": "id", "it": "it", "ja": "jp", "ka": "ge",
+    "kk": "kz", "ko": "kr", "ky": "kg", "lt": "lt", "lv": "lv", "mk": "mk", "ms": "my", "nb": "no",
+    "nl": "nl", "no": "no", "pl": "pl", "pt": "pt", "ro": "ro", "ru": "ru", "sk": "sk", "sl": "si",
+    "sq": "al", "sr": "rs", "sv": "se", "th": "th", "tr": "tr", "uk": "ua", "uz": "uz", "vi": "vn",
+    "zh": "cn",
+}
+
+
+def language_label(language: str) -> str:
+    parts = (language or "").replace("-", "_").split("_")
+    country = parts[1] if len(parts) > 1 and len(parts[1]) == 2 else LANGUAGE_COUNTRY.get(parts[0].lower(), "")
+    return f"{flag(country)} {language}" if country else language

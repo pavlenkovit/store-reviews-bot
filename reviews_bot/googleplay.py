@@ -13,6 +13,7 @@ from urllib.parse import quote
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import service_account
 
+from .countries import language_label
 from .telegram import esc, stars
 
 SCOPES = [
@@ -51,7 +52,9 @@ def review_text(app: dict, review: dict, edited: bool) -> str:
     c = review["comments"][0]["userComment"]
     modified = datetime.fromtimestamp(int(c["lastModified"]["seconds"]), timezone.utc)
     title = "Отзыв изменён" if edited else "Новый отзыв"
-    lines = [f"{stars(c.get('starRating', 0))} <b>{title}</b> · {esc(app['name'])} · Google Play"]
+    language = c.get("reviewerLanguage")
+    where = f"Google Play {language_label(language)}" if language else "Google Play"
+    lines = [f"{stars(c.get('starRating', 0))} <b>{title}</b> · {esc(app['name'])} · {where}"]
     text = (c.get("text") or "").strip()
     original = (c.get("originalText") or "").strip()
     if original and original != text:
@@ -59,7 +62,7 @@ def review_text(app: dict, review: dict, edited: bool) -> str:
         lines.append(f"<i>Перевод:</i> {esc(text)}")
     elif text:
         lines.append(esc(text))
-    meta = [review.get("authorName") or "без имени", c.get("reviewerLanguage")]
+    meta = [review.get("authorName") or "без имени"]
     device = (c.get("deviceMetadata") or {}).get("productName") or c.get("device")
     meta += [device, c.get("appVersionName") and f"v{c['appVersionName']}", f"{modified:%d.%m.%Y}"]
     lines.append("— " + " · ".join(esc(str(m)) for m in meta if m))
@@ -110,9 +113,11 @@ def rating_text(app: dict, row: dict, rating: int, old_rating: int | None) -> st
         head = f"{stars(rating)} <b>Новая оценка</b>"
     else:
         head = f"{stars(rating)} <b>Оценка изменена</b> ({old_rating} → {rating})"
-    meta = [row.get("Reviewer Language"), row.get("Device"), row.get("App Version Name") and f"v{row['App Version Name']}"]
+    language = row.get("Reviewer Language")
+    where = f"Google Play {language_label(language)}" if language else "Google Play"
+    meta = [row.get("Device"), row.get("App Version Name") and f"v{row['App Version Name']}"]
     meta.append(f"{submitted:%d.%m.%Y}")
-    return f"{head} · {esc(app['name'])} · Google Play\n" + " · ".join(esc(m) for m in meta if m)
+    return f"{head} · {esc(app['name'])} · {where}\n" + " · ".join(esc(m) for m in meta if m)
 
 
 def check_ratings(state: dict, apps: list[dict], http: AuthorizedSession, bucket: str) -> list[dict]:
