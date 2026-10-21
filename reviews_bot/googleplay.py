@@ -13,7 +13,7 @@ from urllib.parse import quote
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import service_account
 
-from .telegram import esc, stars
+from .telegram import esc, quote, stars
 
 SCOPES = [
     "https://www.googleapis.com/auth/androidpublisher",
@@ -50,19 +50,22 @@ def fetch_reviews(http: AuthorizedSession, package: str, translate_to: str) -> l
 def review_text(app: dict, review: dict, edited: bool) -> str:
     c = review["comments"][0]["userComment"]
     modified = datetime.fromtimestamp(int(c["lastModified"]["seconds"]), timezone.utc)
-    title = "Отзыв изменён" if edited else "Новый отзыв"
-    lines = [f"{stars(c.get('starRating', 0))} <b>{title}</b> · {esc(app['name'])} · Google Play"]
+    title = "✏️ Отзыв изменён" if edited else "💬 Новый отзыв"
+    lines = [f"<b>{title} · {esc(app['name'])}</b>", "🤖 Google Play", stars(c.get("starRating", 0)), ""]
     text = (c.get("text") or "").strip()
     original = (c.get("originalText") or "").strip()
     if original and original != text:
-        lines.append(esc(original))
-        lines.append(f"<i>Перевод:</i> {esc(text)}")
+        lines.append(quote(original))
+        lines.append(f"🔤 <i>Перевод:</i> {esc(text)}")
     elif text:
-        lines.append(esc(text))
-    meta = [review.get("authorName") or "без имени", c.get("reviewerLanguage")]
+        lines.append(quote(text))
+    lines.append(f"👤 {esc(review.get('authorName') or 'без имени')}")
     device = (c.get("deviceMetadata") or {}).get("productName") or c.get("device")
-    meta += [device, c.get("appVersionName") and f"v{c['appVersionName']}", f"{modified:%d.%m.%Y}"]
-    lines.append("— " + " · ".join(esc(str(m)) for m in meta if m))
+    version = c.get("appVersionName") and f"v{c['appVersionName']}"
+    if device or version:
+        lines.append("📱 " + " · ".join(esc(m) for m in (device, version) if m))
+    language = c.get("reviewerLanguage")
+    lines.append((f"🌐 {esc(language)} · " if language else "") + f"📅 {modified:%d.%m.%Y}")
     return "\n".join(lines)
 
 
@@ -107,12 +110,17 @@ def fetch_report(http: AuthorizedSession, bucket: str, package: str, month: str)
 def rating_text(app: dict, row: dict, rating: int, old_rating: int | None) -> str:
     submitted = datetime.fromtimestamp(int(row["Review Submit Millis Since Epoch"]) / 1000, timezone.utc)
     if old_rating is None:
-        head = f"{stars(rating)} <b>Новая оценка</b>"
+        head = f"⭐️ <b>Новая оценка · {esc(app['name'])}</b>"
     else:
-        head = f"{stars(rating)} <b>Оценка изменена</b> ({old_rating} → {rating})"
-    meta = [row.get("Reviewer Language"), row.get("Device"), row.get("App Version Name") and f"v{row['App Version Name']}"]
-    meta.append(f"{submitted:%d.%m.%Y}")
-    return f"{head} · {esc(app['name'])} · Google Play\n" + " · ".join(esc(m) for m in meta if m)
+        head = f"✏️ <b>Оценка изменена · {esc(app['name'])}</b>"
+    lines = [head, "🤖 Google Play", stars(rating) + (f" (было {old_rating})" if old_rating is not None else "")]
+    device = row.get("Device")
+    version = row.get("App Version Name") and f"v{row['App Version Name']}"
+    if device or version:
+        lines.append("📱 " + " · ".join(esc(m) for m in (device, version) if m))
+    language = row.get("Reviewer Language")
+    lines.append((f"🌐 {esc(language)} · " if language else "") + f"📅 {submitted:%d.%m.%Y}")
+    return "\n".join(lines)
 
 
 def check_ratings(state: dict, apps: list[dict], http: AuthorizedSession, bucket: str) -> list[dict]:
