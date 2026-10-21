@@ -61,18 +61,13 @@ def review_text(app: dict, review: dict) -> str:
     a = review["attributes"]
     country = ALPHA3_TO_2.get(a.get("territory", ""), a.get("territory", "")[:2].lower())
     created = datetime.fromisoformat(a["createdDate"].replace("Z", "+00:00"))
-    lines = [
-        f"💬 <b>Новый отзыв · {esc(app['name'])}</b>",
-        f"🍏 App Store · {label(country)}",
-        stars(a["rating"]),
-        "",
-    ]
+    lines = ["<b>Новый отзыв в App Store</b>", f"{esc(app['name'])} · {label(country)}", stars(a["rating"]), ""]
     if a.get("title"):
         lines.append(f"<b>{esc(a['title'])}</b>")
     if a.get("body"):
         lines.append(quote(a["body"]))
-    lines.append(f"👤 {esc(a.get('reviewerNickname') or 'без имени')} · 📅 {created:%d.%m.%Y}")
-    lines.append(f'↩️ <a href="{reply_link(app["id"])}">Ответить в App Store Connect</a>')
+    lines.append(f"{esc(a.get('reviewerNickname') or 'без имени')} · {created:%d.%m.%Y}")
+    lines.append(f'<a href="{reply_link(app["id"])}">Ответить в App Store Connect</a>')
     return "\n".join(lines)
 
 
@@ -152,17 +147,17 @@ def check_ratings(state: dict, apps: list[dict]) -> tuple[list[dict], list[str]]
             if added <= 0:
                 continue
 
-            where = f"🍏 App Store · {label(country)}"
+            where = f"{esc(app['name'])} · {label(country)}"
             if old_count:
-                summary = f"📊 Средняя {old_avg:.2f} → {new_avg:.2f} ({ratings_word(new_count)})"
+                summary = f"Средняя {old_avg:.2f} → {new_avg:.2f} ({ratings_word(new_count)})"
             else:
-                summary = f"📊 Первая оценка в этой стране, средняя {new_avg:.2f}"
+                summary = f"Первая оценка в этой стране, средняя {new_avg:.2f}"
             if added == 1:
                 rating = max(1, min(5, round(stars_sum)))
-                text = f"⭐️ <b>Новая оценка · {esc(app['name'])}</b>\n{where}\n{stars(rating)}\n{summary}"
+                text = f"<b>Новая оценка в App Store</b>\n{where}\n{stars(rating)}\n{summary}"
             else:
-                head = f"⭐️ <b>+{ratings_word(added)} · {esc(app['name'])}</b>"
-                text = f"{head}\n{where}\n🔢 В среднем {stars_sum / added:.1f}\n{summary}"
+                head = f"<b>+{ratings_word(added)} в App Store</b>"
+                text = f"{head}\n{where}\nВ среднем {stars_sum / added:.1f}\n{summary}"
             events.append({"time": now, "text": text})
 
     for by_country in pending_all.values():
