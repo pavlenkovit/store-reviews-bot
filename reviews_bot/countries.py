@@ -1,0 +1,42 @@
+"""Витрины App Store: ISO alpha-2 → alpha-3 (ASC отдаёт территорию отзыва в alpha-3)."""
+
+STOREFRONTS = {
+    "ae": "ARE", "af": "AFG", "ag": "ATG", "ai": "AIA", "al": "ALB", "am": "ARM", "ao": "AGO",
+    "ar": "ARG", "at": "AUT", "au": "AUS", "az": "AZE", "ba": "BIH", "bb": "BRB", "be": "BEL",
+    "bf": "BFA", "bg": "BGR", "bh": "BHR", "bj": "BEN", "bm": "BMU", "bn": "BRN", "bo": "BOL",
+    "br": "BRA", "bs": "BHS", "bt": "BTN", "bw": "BWA", "by": "BLR", "bz": "BLZ", "ca": "CAN",
+    "cd": "COD", "cg": "COG", "ch": "CHE", "ci": "CIV", "cl": "CHL", "cm": "CMR", "cn": "CHN",
+    "co": "COL", "cr": "CRI", "cv": "CPV", "cy": "CYP", "cz": "CZE", "de": "DEU", "dk": "DNK",
+    "dm": "DMA", "do": "DOM", "dz": "DZA", "ec": "ECU", "ee": "EST", "eg": "EGY", "es": "ESP",
+    "fi": "FIN", "fj": "FJI", "fm": "FSM", "fr": "FRA", "ga": "GAB", "gb": "GBR", "gd": "GRD",
+    "ge": "GEO", "gh": "GHA", "gm": "GMB", "gr": "GRC", "gt": "GTM", "gw": "GNB", "gy": "GUY",
+    "hk": "HKG", "hn": "HND", "hr": "HRV", "hu": "HUN", "id": "IDN", "ie": "IRL", "il": "ISR",
+    "in": "IND", "iq": "IRQ", "is": "ISL", "it": "ITA", "jm": "JAM", "jo": "JOR", "jp": "JPN",
+    "ke": "KEN", "kg": "KGZ", "kh": "KHM", "kn": "KNA", "kr": "KOR", "kw": "KWT", "ky": "CYM",
+    "kz": "KAZ", "la": "LAO", "lb": "LBN", "lc": "LCA", "lk": "LKA", "lr": "LBR", "lt": "LTU",
+    "lu": "LUX", "lv": "LVA", "ly": "LBY", "ma": "MAR", "md": "MDA", "me": "MNE", "mg": "MDG",
+    "mk": "MKD", "ml": "MLI", "mm": "MMR", "mn": "MNG", "mo": "MAC", "mr": "MRT", "ms": "MSR",
+    "mt": "MLT", "mu": "MUS", "mv": "MDV", "mw": "MWI", "mx": "MEX", "my": "MYS", "mz": "MOZ",
+    "na": "NAM", "ne": "NER", "ng": "NGA", "ni": "NIC", "nl": "NLD", "no": "NOR", "np": "NPL",
+    "nr": "NRU", "nz": "NZL", "om": "OMN", "pa": "PAN", "pe": "PER", "pg": "PNG", "ph": "PHL",
+    "pk": "PAK", "pl": "POL", "pt": "PRT", "pw": "PLW", "py": "PRY", "qa": "QAT", "ro": "ROU",
+    "rs": "SRB", "ru": "RUS", "rw": "RWA", "sa": "SAU", "sb": "SLB", "sc": "SYC", "se": "SWE",
+    "sg": "SGP", "si": "SVN", "sk": "SVK", "sl": "SLE", "sn": "SEN", "sr": "SUR", "st": "STP",
+    "sv": "SLV", "sz": "SWZ", "tc": "TCA", "td": "TCD", "th": "THA", "tj": "TJK", "tm": "TKM",
+    "tn": "TUN", "to": "TON", "tr": "TUR", "tt": "TTO", "tw": "TWN", "tz": "TZA", "ua": "UKR",
+    "ug": "UGA", "us": "USA", "uy": "URY", "uz": "UZB", "vc": "VCT", "ve": "VEN", "vg": "VGB",
+    "vn": "VNM", "vu": "VUT", "xk": "XKS", "ye": "YEM", "za": "ZAF", "zm": "ZMB", "zw": "ZWE",
+}
+
+ALPHA3_TO_2 = {v: k for k, v in STOREFRONTS.items()}
+
+
+def flag(alpha2: str) -> str:
+    alpha2 = (alpha2 or "").upper()
+    if len(alpha2) != 2 or not alpha2.isalpha() or alpha2 == "XK":
+        return "🏳"
+    return "".join(chr(0x1F1E6 + ord(c) - ord("A")) for c in alpha2)
+
+
+def label(alpha2: str) -> str:
+    return f"{flag(alpha2)} {alpha2.upper()}"

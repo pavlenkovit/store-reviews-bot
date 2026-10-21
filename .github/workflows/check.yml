@@ -1,0 +1,58 @@
+name: Check reviews
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: check-reviews
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      # Состояние (что уже отправлено) живёт в ветке state, одним коммитом
+      - name: Load state
+        run: |
+          if git fetch --depth 1 origin state 2>/dev/null; then
+            git show FETCH_HEAD:state.json > state.json
+            cp state.json state.before.json
+          fi
+
+      - name: Check stores
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: python -m reviews_bot
+
+      - name: Save state
+        if: always()
+        run: |
+          [ -f state.json ] || exit 0
+          cmp -s state.json state.before.json 2>/dev/null && exit 0
+          dir=$(mktemp -d)
+          cp state.json "$dir/"
+          cd "$dir"
+          git init -q -b state
+          git add state.json
+          git -c user.name="reviews-bot" -c user.email="reviews-bot@users.noreply.github.com" commit -qm "state"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" state

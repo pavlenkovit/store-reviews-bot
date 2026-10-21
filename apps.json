@@ -1,0 +1,10 @@
+{
+  "appstore": [
+    {"name": "VibeLing", "id": "6753818507"},
+    {"name": "Srpski", "id": "6815224701"}
+  ],
+  "googleplay": [
+    {"name": "VibeLing", "package": "com.vitalypavlenko.vibeling"}
+  ],
+  "play_reports_bucket": "pubsite_prod_5656397996215879881"
+}

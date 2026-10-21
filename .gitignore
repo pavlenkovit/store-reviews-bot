@@ -1,0 +1,6 @@
+.env
+state.json
+__pycache__/
+.venv/
+*.p8
+*service-account*.json
