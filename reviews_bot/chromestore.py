@@ -27,6 +27,7 @@ LANGUAGES = [
     "zh-CN", "zh-TW",
 ]
 PENDING_TTL = 7 * 86400
+DROP_TTL = 86400
 SEEN_LIMIT = 1000
 
 
@@ -110,10 +111,19 @@ def check(state: dict, extensions: list[dict]) -> list[dict]:
             continue
         new_count, new_avg = next(result[0] for result in results.values() if result)
         old = ratings_all.get(ext["id"])
-        ratings_all[ext["id"]] = [new_count, new_avg]
         if old is None:
+            ratings_all[ext["id"]] = [new_count, new_avg]
             continue
-        old_count, old_avg = old
+        old_count, old_avg, *rest = old
+        if new_count < old_count:
+            # Как и в App Store: устаревший ответ с меньшим счётчиком не записываем,
+            # иначе следующий свежий пришлёт ту же оценку ещё раз. Уменьшение
+            # (удалённую оценку) принимаем, только если оно держится сутки.
+            since = rest[0] if rest else now
+            if now - since < DROP_TTL:
+                ratings_all[ext["id"]] = [old_count, old_avg, since]
+                continue
+        ratings_all[ext["id"]] = [new_count, new_avg]
         added = new_count - old_count
         if added <= 0:
             continue

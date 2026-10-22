@@ -20,6 +20,7 @@ from .telegram import esc, quote, ratings_word, stars
 ASC = "https://api.appstoreconnect.apple.com/v1"
 LOOKUP = "https://itunes.apple.com/lookup"
 PENDING_TTL = 7 * 86400
+DROP_TTL = 86400
 SEEN_LIMIT = 1000
 
 
@@ -132,7 +133,16 @@ def check_ratings(state: dict, apps: list[dict]) -> tuple[list[dict], list[str]]
                 continue
             new_count, new_avg = current[app["id"]]
             ratings = ratings_all.setdefault(app["id"], {})
-            old_count, old_avg = ratings.get(country, (0, 0.0))
+            old_count, old_avg, *rest = ratings.get(country, (0, 0.0))
+            if new_count < old_count:
+                # Lookup отвечает из разных кэшей, и старый ответ с меньшим счётчиком
+                # приходит вперемешку со свежим. Если его записать, следующий свежий ответ
+                # пришлёт ту же оценку ещё раз. Уменьшение (удалённую оценку) принимаем,
+                # только если оно держится сутки.
+                since = rest[0] if rest else now
+                if now - since < DROP_TTL:
+                    ratings[country] = [old_count, old_avg, since]
+                    continue
             ratings[country] = [new_count, new_avg]
             added = new_count - old_count
             if first_run[app["id"]] or added <= 0:
