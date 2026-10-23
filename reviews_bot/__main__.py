@@ -69,31 +69,48 @@ def run(dry_run: bool) -> int:
     if apps.get("chromestore"):
         step("Chrome Web Store", lambda: chromestore.check(state, apps["chromestore"]))
 
-    messages = [e["text"] for e in sorted(events, key=lambda e: e["time"])]
+    # Сообщение: (текст, отзыв в pending или None, message_id для правки или None).
+    # Текст отзыва берём из pending только сейчас: проверка оценок могла дописать в него среднюю
+    messages = []
+    for e in sorted(events, key=lambda e: e["time"]):
+        if "edit" in e:
+            messages.append((e["edit"][2], None, e["edit"][3]))
+        elif "review" in e:
+            messages.append((e["review"][2], e["review"], None))
+        else:
+            messages.append((e["text"], None, None))
     if fresh:
         names = [f"{a['name']} (App Store)" for a in apps.get("appstore", [])]
         names += [f"{a['name']} (Google Play)" for a in apps.get("googleplay", [])]
         names += [f"{a['name']} (Chrome Web Store)" for a in apps.get("chromestore", [])]
-        messages.insert(0, "👋 Бот отзывов запущен. Слежу за: " + ", ".join(esc(n) for n in names)
-                        + ".\nУже существующие отзывы и оценки пропускаю, пришлю только новые.")
+        messages.insert(0, ("👋 Бот отзывов запущен. Слежу за: " + ", ".join(esc(n) for n in names)
+                            + ".\nУже существующие отзывы и оценки пропускаю, пришлю только новые.", None, None))
 
     error_text = "\n".join(errors)
     if error_text != state.get("last_error", ""):
         if error_text:
-            messages.append("⚠️ <b>Ошибка проверки отзывов</b>\n" + esc(error_text))
+            messages.append(("⚠️ <b>Ошибка проверки отзывов</b>\n" + esc(error_text), None, None))
         elif state.get("last_error"):
-            messages.append("✅ Проверка отзывов снова работает")
+            messages.append(("✅ Проверка отзывов снова работает", None, None))
     state["last_error"] = error_text
 
     if dry_run:
-        for text in messages:
-            print("-" * 40 + "\n" + text)
+        for text, _, message_id in messages:
+            print("-" * 40 + (f" правка {message_id}" if message_id else "") + "\n" + text)
         return 1 if errors else 0
 
     sent = 0
     try:
-        for text in messages:
-            telegram.send(text)
+        for text, review, message_id in messages:
+            if message_id:
+                try:
+                    telegram.send(text, message_id)
+                except RuntimeError as e:
+                    print(f"Не удалось дописать среднюю в сообщение {message_id}: {e}")
+            else:
+                message_id = telegram.send(text)
+                if review:
+                    review[3] = message_id
             sent += 1
     finally:
         if sent < len(messages):

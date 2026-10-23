@@ -4,7 +4,8 @@
 со средней оценкой и числом оценок, ds:1 — свежие отзывы, но только на языке страницы (hl).
 Поэтому отзывы собираем, обходя все языки витрины. Оценки без текста, как и в App Store,
 замечаем по приросту общего счётчика; звёзды уже показанных отзывов лежат в pending
-и вычитаются, когда счётчик до них дойдёт.
+и вычитаются, когда счётчик до них дойдёт. Тогда же в сообщение об отзыве дописываем,
+как изменилась средняя.
 """
 from __future__ import annotations
 
@@ -16,7 +17,7 @@ from datetime import datetime, timezone
 
 import requests
 
-from .telegram import esc, quote, ratings_word, stars
+from .telegram import esc, pending_review, quote, ratings_word, settle_reviews, stars
 
 PAGE = "https://chromewebstore.google.com/detail/{id}/reviews"
 # Языки интерфейса Chrome Web Store
@@ -97,9 +98,12 @@ def check(state: dict, extensions: list[dict]) -> list[dict]:
             seen[review[0]] = modified
             if first_run or (previous is not None and previous >= modified):
                 continue
+            text = review_text(ext, review, edited=previous is not None)
             if previous is None:
-                pending.append([review[2], now])
-            events.append({"time": modified, "text": review_text(ext, review, edited=previous is not None)})
+                pending.append(pending_review(review[2], now, text))
+                events.append({"time": modified, "review": pending[-1]})
+            else:
+                events.append({"time": modified, "text": text})
         for review_id in sorted(seen, key=seen.get)[:-SEEN_LIMIT]:
             del seen[review_id]
 
@@ -130,12 +134,13 @@ def check(state: dict, extensions: list[dict]) -> list[dict]:
         stars_sum = new_avg * new_count - old_avg * old_count
         taken = pending[:added]
         del pending[:added]
-        stars_sum -= sum(rating for rating, _ in taken)
+        stars_sum -= sum(item[0] for item in taken)
         added -= len(taken)
+        summary = f"Средняя {old_avg:.2f} → {new_avg:.2f} ({ratings_word(new_count)})"
+        events.extend(settle_reviews(taken, summary))
         if added <= 0:
             continue
 
-        summary = f"Средняя {old_avg:.2f} → {new_avg:.2f} ({ratings_word(new_count)})"
         if added == 1:
             rating = max(1, min(5, round(stars_sum)))
             text = f"<b>Новая оценка в Chrome Web Store</b>\n{esc(ext['name'])}\n{stars(rating)}\n{summary}"

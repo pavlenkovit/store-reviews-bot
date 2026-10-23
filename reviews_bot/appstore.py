@@ -4,6 +4,7 @@ Apple не отдаёт оценки без текста поштучно, то�
 Поэтому оценку мы замечаем как прирост счётчика в стране, а её звёзды восстанавливаем
 по изменению суммы (средняя × количество). Отзыв тоже прибавляет к счётчику, поэтому
 звёзды уже показанных отзывов лежат в pending и вычитаются, когда счётчик до них дойдёт.
+Тогда же в сообщение об отзыве дописываем, как изменилась средняя.
 """
 from __future__ import annotations
 
@@ -15,7 +16,7 @@ import jwt
 import requests
 
 from .countries import ALPHA3_TO_2, STOREFRONTS, label
-from .telegram import esc, quote, ratings_word, stars
+from .telegram import esc, pending_review, quote, ratings_word, settle_reviews, stars
 
 ASC = "https://api.appstoreconnect.apple.com/v1"
 LOOKUP = "https://itunes.apple.com/lookup"
@@ -89,9 +90,10 @@ def check_reviews(state: dict, apps: list[dict], token: str) -> list[dict]:
             a = review["attributes"]
             created = datetime.fromisoformat(a["createdDate"].replace("Z", "+00:00")).timestamp()
             country = ALPHA3_TO_2.get(a.get("territory", ""))
+            item = pending_review(a["rating"], int(time.time()), review_text(app, review))
             if country:
-                pending_all.setdefault(app["id"], {}).setdefault(country, []).append([a["rating"], int(time.time())])
-            events.append({"time": created, "text": review_text(app, review)})
+                pending_all.setdefault(app["id"], {}).setdefault(country, []).append(item)
+            events.append({"time": created, "review": item})
         del seen[:-SEEN_LIMIT]
     return events
 
@@ -152,16 +154,18 @@ def check_ratings(state: dict, apps: list[dict]) -> tuple[list[dict], list[str]]
             pending = pending_all.get(app["id"], {}).get(country, [])
             taken = pending[:added]
             del pending[:added]
-            stars_sum -= sum(rating for rating, _ in taken)
+            stars_sum -= sum(item[0] for item in taken)
             added -= len(taken)
-            if added <= 0:
-                continue
 
-            where = f"{esc(app['name'])} · {label(country)}"
             if old_count:
                 summary = f"Средняя {old_avg:.2f} → {new_avg:.2f} ({ratings_word(new_count)})"
             else:
                 summary = f"Первая оценка в этой стране, средняя {new_avg:.2f}"
+            events.extend(settle_reviews(taken, summary))
+            if added <= 0:
+                continue
+
+            where = f"{esc(app['name'])} · {label(country)}"
             if added == 1:
                 rating = max(1, min(5, round(stars_sum)))
                 text = f"<b>Новая оценка в App Store</b>\n{where}\n{stars(rating)}\n{summary}"

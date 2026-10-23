@@ -31,18 +31,18 @@ class Telegram:
             return body["result"]
         raise RuntimeError(f"Telegram {method}: слишком много запросов")
 
-    def send(self, text: str) -> None:
+    def send(self, text: str, message_id: int | None = None) -> int:
+        """Отправить сообщение или, если задан message_id, заменить текст уже отправленного."""
         if len(text) > LIMIT:
             text = text[: LIMIT - 1] + "…"
-        self.call(
-            "sendMessage",
-            chat_id=self.chat_id,
-            text=text,
-            parse_mode="HTML",
-            link_preview_options={"is_disabled": True},
-        )
+        params = {"chat_id": self.chat_id, "text": text, "parse_mode": "HTML", "link_preview_options": {"is_disabled": True}}
+        if message_id:
+            self.call("editMessageText", message_id=message_id, **params)
+        else:
+            message_id = self.call("sendMessage", **params)["message_id"]
         # Telegram позволяет ~1 сообщение в секунду в один чат
         time.sleep(1.1)
+        return message_id
 
     def chats(self) -> list[dict]:
         seen = {}
@@ -73,3 +73,22 @@ def plural(n: int, one: str, few: str, many: str) -> str:
 
 def ratings_word(n: int) -> str:
     return f"{n} {plural(n, 'оценка', 'оценки', 'оценок')}"
+
+
+def pending_review(rating: int, now: int, text: str) -> list:
+    """Отзыв, который ещё не дошёл до счётчика оценок: [звёзды, когда, текст сообщения, message_id]."""
+    return [rating, now, text, None]
+
+
+def settle_reviews(taken: list[list], summary: str) -> list[dict]:
+    """Счётчик дошёл до отзывов: дописать под звёздами, как изменилась средняя.
+    Если сообщение ещё не отправлено, строка попадёт в него сразу, иначе его отредактируем."""
+    events = []
+    for item in taken:
+        if len(item) < 3:
+            continue  # из состояния до того, как начали хранить текст
+        head, tail = item[2].split("\n\n", 1)
+        item[2] = f"{head}\n{summary}\n\n{tail}"
+        if item[3]:
+            events.append({"time": item[1], "edit": item})
+    return events
