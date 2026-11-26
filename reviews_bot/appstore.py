@@ -16,7 +16,7 @@ import jwt
 import requests
 
 from .countries import ALPHA3_TO_2, STOREFRONTS, label
-from .telegram import esc, pending_review, quote, ratings_word, settle_reviews, stars
+from .telegram import annotate_pending, esc, pending_review, quote, ratings_word, settle_reviews, stars
 
 ASC = "https://api.appstoreconnect.apple.com/v1"
 LOOKUP = "https://itunes.apple.com/lookup"
@@ -144,10 +144,12 @@ def check_ratings(state: dict, apps: list[dict]) -> tuple[list[dict], list[str]]
                 since = rest[0] if rest else now
                 if now - since < DROP_TTL:
                     ratings[country] = [old_count, old_avg, since]
+                    events.extend(annotate_pending(pending_all.get(app["id"], {}).get(country, []), old_count, old_avg))
                     continue
             ratings[country] = [new_count, new_avg]
             added = new_count - old_count
             if first_run[app["id"]] or added <= 0:
+                events.extend(annotate_pending(pending_all.get(app["id"], {}).get(country, []), new_count, new_avg))
                 continue
 
             stars_sum = new_avg * new_count - old_avg * old_count
@@ -162,6 +164,7 @@ def check_ratings(state: dict, apps: list[dict]) -> tuple[list[dict], list[str]]
             else:
                 summary = f"Первая оценка в этой стране, средняя {new_avg:.2f}"
             events.extend(settle_reviews(taken, summary))
+            events.extend(annotate_pending(pending, new_count, new_avg))
             if added <= 0:
                 continue
 

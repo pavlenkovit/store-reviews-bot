@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 import requests
 
-from .telegram import esc, pending_review, quote, ratings_word, settle_reviews, stars
+from .telegram import annotate_pending, esc, pending_review, quote, ratings_word, settle_reviews, stars
 
 PAGE = "https://chromewebstore.google.com/detail/{id}/reviews"
 # Языки интерфейса Chrome Web Store
@@ -117,6 +117,7 @@ def check(state: dict, extensions: list[dict]) -> list[dict]:
         old = ratings_all.get(ext["id"])
         if old is None:
             ratings_all[ext["id"]] = [new_count, new_avg]
+            events.extend(annotate_pending(pending, new_count, new_avg))
             continue
         old_count, old_avg, *rest = old
         if new_count < old_count:
@@ -126,10 +127,12 @@ def check(state: dict, extensions: list[dict]) -> list[dict]:
             since = rest[0] if rest else now
             if now - since < DROP_TTL:
                 ratings_all[ext["id"]] = [old_count, old_avg, since]
+                events.extend(annotate_pending(pending, old_count, old_avg))
                 continue
         ratings_all[ext["id"]] = [new_count, new_avg]
         added = new_count - old_count
         if added <= 0:
+            events.extend(annotate_pending(pending, new_count, new_avg))
             continue
         stars_sum = new_avg * new_count - old_avg * old_count
         taken = pending[:added]
@@ -138,6 +141,7 @@ def check(state: dict, extensions: list[dict]) -> list[dict]:
         added -= len(taken)
         summary = f"Средняя {old_avg:.2f} → {new_avg:.2f} ({ratings_word(new_count)})"
         events.extend(settle_reviews(taken, summary))
+        events.extend(annotate_pending(pending, new_count, new_avg))
         if added <= 0:
             continue
 

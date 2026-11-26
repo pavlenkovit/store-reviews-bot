@@ -88,7 +88,27 @@ def settle_reviews(taken: list[list], summary: str) -> list[dict]:
         if len(item) < 3:
             continue  # из состояния до того, как начали хранить текст
         head, tail = item[2].split("\n\n", 1)
+        if len(item) > 4:
+            head = head.rsplit("\n", 1)[0]  # убрать предварительную строку из annotate_pending
+            del item[4:]
         item[2] = f"{head}\n{summary}\n\n{tail}"
+        if item[3]:
+            events.append({"time": item[1], "edit": item})
+    return events
+
+
+def annotate_pending(pending: list[list], count: int, avg: float) -> list[dict]:
+    """Пока счётчик не дошёл до отзыва, показать в нём текущую среднюю.
+    Когда дойдёт, settle_reviews заменит эту строку на «Средняя X → Y»."""
+    events = []
+    if not count:
+        return events
+    for item in pending:
+        if len(item) != 4:
+            continue  # уже с предварительной строкой или из старого состояния без текста
+        head, tail = item[2].split("\n\n", 1)
+        item[2] = f"{head}\nСредняя {avg:.2f} ({ratings_word(count)})\n\n{tail}"
+        item.append(True)
         if item[3]:
             events.append({"time": item[1], "edit": item})
     return events
